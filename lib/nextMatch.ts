@@ -14,7 +14,8 @@ export async function getNextMatchForTeam(
   leagueCode: string,
   teamName: string
 ): Promise<NextMatch | null> {
-  // 1) nađi ID ekipe
+
+  // 1) Pronađi ID ekipe
   const { data: team, error: teamError } = await supabase
     .from("teams")
     .select("id")
@@ -28,10 +29,9 @@ export async function getNextMatchForTeam(
   }
 
   const teamId = team.id as string;
+  const today = new Date().toISOString().slice(0, 10);
 
-  // 2) uzmi prvu sljedeću utakmicu
-  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-
+  // 2) Dohvati SVE buduće utakmice i sortiraj ručno
   const { data: fixtures, error: fixturesError } = await supabase
     .from("fixtures")
     .select(
@@ -39,7 +39,8 @@ export async function getNextMatchForTeam(
       id,
       round,
       match_date,
-      match_time,
+      match_time_start,
+      match_time_end,
       league_code,
       home_team_id,
       away_team_id,
@@ -49,10 +50,7 @@ export async function getNextMatchForTeam(
     )
     .eq("league_code", leagueCode)
     .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
-    .gte("match_date", today)
-    .order("match_date", { ascending: true })
-    .order("match_time", { ascending: true })
-    .limit(1);
+    .gte("match_date", today);
 
   if (fixturesError) {
     console.error("Error loading next match", fixturesError.message);
@@ -63,14 +61,26 @@ export async function getNextMatchForTeam(
     return null;
   }
 
-  const f = fixtures[0] as any;
+  // 3) Sortiramo po datumu + početku utakmice
+  const sorted = fixtures.sort((a: any, b: any) => {
+    const d1 = new Date(a.match_date + "T" + (a.match_time_start || "00:00"));
+    const d2 = new Date(b.match_date + "T" + (b.match_time_start || "00:00"));
+    return d1.getTime() - d2.getTime();
+  });
+
+  const f = sorted[0];
+
   const isHome = f.home_team_id === teamId;
+  const match_time =
+    f.match_time_start && f.match_time_end
+      ? `${f.match_time_start} - ${f.match_time_end}`
+      : f.match_time_start || f.match_time_end || "";
 
   return {
     id: f.id,
     round: f.round,
     match_date: f.match_date,
-    match_time: f.match_time,
+    match_time,
     home_team_name: f.home?.name ?? "",
     away_team_name: f.away?.name ?? "",
     isHome,
