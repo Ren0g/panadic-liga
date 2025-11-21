@@ -7,13 +7,13 @@ type Standing = {
   league_code: string;
   team_id: string;
   team_name: string;
-  ut: number; // utakmica
-  p: number;  // pobjede
-  n: number;  // neriješene
-  i: number;  // izgubljene
+  ut: number;
+  p: number;
+  n: number;
+  i: number;
   gplus: number;
   gminus: number;
-  gr: number; // gol razlika
+  gr: number;
   bodovi: number;
 };
 
@@ -32,7 +32,13 @@ type Result = {
   away_goals: number;
 };
 
-export default function LeagueView({ leagueCode }: { leagueCode: "PIONIRI" | "MLADJI" }) {
+export default function LeagueView({
+  leagueCode,
+  refreshKey,
+}: {
+  leagueCode: "PIONIRI" | "MLADJI";
+  refreshKey?: number;
+}) {
   const [standings, setStandings] = useState<Standing[]>([]);
   const [nextMatch, setNextMatch] = useState<Fixture | null>(null);
   const [nextMatchResult, setNextMatchResult] = useState<Result | null>(null);
@@ -48,7 +54,9 @@ export default function LeagueView({ leagueCode }: { leagueCode: "PIONIRI" | "ML
     const loadData = async () => {
       setLoading(true);
 
+      // -----------------------------
       // 1) TABLICA
+      // -----------------------------
       const { data: standingsData } = await supabase
         .from("standings")
         .select("*")
@@ -58,7 +66,9 @@ export default function LeagueView({ leagueCode }: { leagueCode: "PIONIRI" | "ML
 
       setStandings(standingsData || []);
 
-      // 2) NAĐI ID teama Ban Jelačić / Ban Jelačić 2
+      // -----------------------------
+      // 2) PRONAĐI TEAM ID ZA BAN JELAČIĆ / BAN JELAČIĆ 2
+      // -----------------------------
       const team = standingsData?.find((t) => t.team_name === banTeamName);
       if (!team) {
         setNextMatch(null);
@@ -67,7 +77,9 @@ export default function LeagueView({ leagueCode }: { leagueCode: "PIONIRI" | "ML
         return;
       }
 
+      // -----------------------------
       // 3) PRONAĐI IDUĆU UTAKMICU
+      // -----------------------------
       const today = new Date();
 
       const { data: fixturesData } = await supabase
@@ -77,7 +89,7 @@ export default function LeagueView({ leagueCode }: { leagueCode: "PIONIRI" | "ML
         .or(`home_team_id.eq.${team.team_id},away_team_id.eq.${team.team_id}`);
 
       const upcoming = (fixturesData || [])
-        .map((f: Fixture) => ({
+        .map((f: any) => ({
           ...f,
           fullDate: new Date(`${f.match_date}T${f.match_time}:00`),
         }))
@@ -87,7 +99,9 @@ export default function LeagueView({ leagueCode }: { leagueCode: "PIONIRI" | "ML
       const next = upcoming[0] || null;
       setNextMatch(next);
 
-      // 4) AKO POSTOJI REZULTAT ZA TU UTAKMICU
+      // -----------------------------
+      // 4) PRONAĐI REZULTAT AKO POSTOJI
+      // -----------------------------
       if (next) {
         const { data: resultData } = await supabase
           .from("results")
@@ -102,12 +116,13 @@ export default function LeagueView({ leagueCode }: { leagueCode: "PIONIRI" | "ML
     };
 
     loadData();
-  }, [leagueCode]);
+  }, [leagueCode, refreshKey]);
 
   if (loading) return <p>Učitavanje...</p>;
 
   return (
     <div className="space-y-6">
+      {/* NASLOV */}
       <h1 className="text-xl font-bold">{leagueName} – Tablica</h1>
 
       {/* TABLICA */}
