@@ -1,130 +1,226 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabaseClient'
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import LeagueView from "@/components/LeagueView";
+
+type Fixture = {
+  id: string;
+  league_code: string;
+  round: string;
+  match_date: string;
+  match_time: string;
+  home_team_id: string;
+  away_team_id: string;
+};
+
+type Result = {
+  home_goals: number;
+  away_goals: number;
+};
 
 export default function AdminPage() {
-  const [league, setLeague] = useState('PIONIRI')
-  const [fixtures, setFixtures] = useState<any[]>([])
-  const [selectedFixture, setSelectedFixture] = useState<string>('')
-  const [homeGoals, setHomeGoals] = useState('')
-  const [awayGoals, setAwayGoals] = useState('')
+  const [leagueCode, setLeagueCode] = useState<"PIONIRI" | "MLADJI">("PIONIRI");
+  const [fixtures, setFixtures] = useState<Fixture[]>([]);
+  const [results, setResults] = useState<Record<string, Result | null>>({});
+  const [loading, setLoading] = useState(true);
 
-  // Fetch fixtures when league is changed
+  const [editFixtureId, setEditFixtureId] = useState<string | null>(null);
+  const [homeGoals, setHomeGoals] = useState("");
+  const [awayGoals, setAwayGoals] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const loadFixtures = async () => {
+    setLoading(true);
+
+    // 1) Dohvati sve utakmice za ligu
+    const { data: fixturesData } = await supabase
+      .from("fixtures")
+      .select("*")
+      .eq("league_code", leagueCode)
+      .order("round", { ascending: true })
+      .order("match_date", { ascending: true })
+      .order("match_time", { ascending: true });
+
+    setFixtures(fixturesData || []);
+
+    // 2) Dohvati sve rezultate za tu ligu
+    const { data: resultsData } = await supabase
+      .from("results")
+      .select("*");
+
+    const byFixture: Record<string, Result | null> = {};
+    resultsData?.forEach((r: any) => {
+      byFixture[r.fixture_id] = {
+        home_goals: r.home_goals,
+        away_goals: r.away_goals,
+      };
+    });
+
+    setResults(byFixture);
+    setLoading(false);
+  };
+
   useEffect(() => {
-    async function loadFixtures() {
-      const { data, error } = await supabase
-        .from('fixtures')
-        .select(`
-          id, 
-          round, 
-          match_time, 
-          home_team_id (name), 
-          away_team_id (name)
-        `)
-        .eq('league_code', league)
+    loadFixtures();
+  }, [leagueCode]);
 
-      if (error) {
-        console.error(error)
-      } else {
-        const mapped = data.map((f: any) => ({
-          id: f.id,
-          round: f.round,
-          time: f.match_time,
-          home: f.home_team_id?.name,
-          away: f.away_team_id?.name,
-        }))
-        setFixtures(mapped)
-      }
+  const startEditing = (fixture: Fixture) => {
+    setEditFixtureId(fixture.id);
+
+    const res = results[fixture.id];
+    setHomeGoals(res ? String(res.home_goals) : "");
+    setAwayGoals(res ? String(res.away_goals) : "");
+  };
+
+  const saveResult = async () => {
+    if (!editFixtureId) return;
+
+    const h = Number(homeGoals);
+    const a = Number(awayGoals);
+
+    if (isNaN(h) || isNaN(a)) {
+      alert("Morate unijeti brojčane golove.");
+      return;
     }
 
-    loadFixtures()
-  }, [league])
+    setSaving(true);
 
-  async function submitResult() {
-    if (!selectedFixture || homeGoals === '' || awayGoals === '') {
-      alert('Popuni sve podatke!')
-      return
-    }
+    // Provjeri postoji li rezultat već
+    const existing = results[editFixtureId];
 
-    const { error } = await supabase.from('results').insert({
-      fixture_id: selectedFixture,
-      home_goals: Number(homeGoals),
-      away_goals: Number(awayGoals),
-    })
-
-    if (error) {
-      alert('Greška: ' + error.message)
+    if (existing) {
+      // UPDATE
+      await supabase
+        .from("results")
+        .update({ home_goals: h, away_goals: a })
+        .eq("fixture_id", editFixtureId);
     } else {
-      alert('Rezultat spremljen!')
-      setSelectedFixture('')
-      setHomeGoals('')
-      setAwayGoals('')
+      // INSERT
+      await supabase.from("results").insert({
+        fixture_id: editFixtureId,
+        home_goals: h,
+        away_goals: a,
+      });
     }
-  }
+
+    setSaving(false);
+    setEditFixtureId(null);
+
+    // Ponovno učitaj podatke
+    loadFixtures();
+  };
 
   return (
-    <div className="p-6 max-w-xl mx-auto text-white">
-      <h1 className="text-3xl font-bold mb-6">Admin – Unos Rezultata</h1>
+    <div className="p-4 space-y-6">
+      <h1 className="text-2xl font-bold">Admin – Upravljanje rezultatima</h1>
 
-      <div className="mb-4">
-        <label className="block mb-1">Liga:</label>
-        <select
-          className="w-full p-2 bg-gray-800"
-          value={league}
-          onChange={(e) => setLeague(e.target.value)}
+      {/* Izbornik lige */}
+      <div className="flex gap-2">
+        <button
+          className={`px-4 py-2 rounded ${leagueCode === "PIONIRI" ? "bg-green-600 text-white" : "bg-gray-200"}`}
+          onClick={() => setLeagueCode("PIONIRI")}
         >
-          <option value="PIONIRI">Pioniri</option>
-          <option value="MLADJI">Mlađi pioniri</option>
-        </select>
+          Pioniri
+        </button>
+        <button
+          className={`px-4 py-2 rounded ${leagueCode === "MLADJI" ? "bg-green-600 text-white" : "bg-gray-200"}`}
+          onClick={() => setLeagueCode("MLADJI")}
+        >
+          Mlađi pioniri
+        </button>
       </div>
 
-      <div className="mb-4">
-        <label className="block mb-1">Utakmica:</label>
-        <select
-          className="w-full p-2 bg-gray-800"
-          value={selectedFixture}
-          onChange={(e) => setSelectedFixture(e.target.value)}
-        >
-          <option value="">Odaberi utakmicu</option>
-          {fixtures.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.round} — {f.home} vs {f.away}
-            </option>
-          ))}
-        </select>
+      {/* Public prikaz tablice + iduće utakmice */}
+      <div className="border rounded p-4">
+        <LeagueView leagueCode={leagueCode} />
       </div>
 
-      {selectedFixture && (
-        <>
-          <div className="mb-4">
-            <label className="block mb-1">Golovi domaćin:</label>
-            <input
-              type="number"
-              className="w-full p-2 bg-gray-800"
-              value={homeGoals}
-              onChange={(e) => setHomeGoals(e.target.value)}
-            />
-          </div>
+      <h2 className="text-xl font-semibold">Sve utakmice</h2>
 
-          <div className="mb-4">
-            <label className="block mb-1">Golovi gost:</label>
-            <input
-              type="number"
-              className="w-full p-2 bg-gray-800"
-              value={awayGoals}
-              onChange={(e) => setAwayGoals(e.target.value)}
-            />
-          </div>
-        </>
+      {loading ? (
+        <p>Učitavanje...</p>
+      ) : (
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="border-b">
+              <th className="text-left">Kolo</th>
+              <th className="text-left">Datum</th>
+              <th className="text-left">Vrijeme</th>
+              <th className="text-left">Domaćin</th>
+              <th className="text-left">Gost</th>
+              <th className="text-center">Rezultat</th>
+              <th className="text-center">Akcija</th>
+            </tr>
+          </thead>
+          <tbody>
+            {fixtures.map((f) => {
+              const result = results[f.id];
+              return (
+                <tr key={f.id} className="border-b">
+                  <td>{f.round}</td>
+                  <td>{f.match_date}</td>
+                  <td>{f.match_time}</td>
+                  <td>{f.home_team_id}</td>
+                  <td>{f.away_team_id}</td>
+                  <td className="text-center">
+                    {result ? `${result.home_goals}:${result.away_goals}` : "—"}
+                  </td>
+                  <td className="text-center">
+                    <button
+                      className="px-3 py-1 bg-blue-600 text-white rounded text-xs"
+                      onClick={() => startEditing(f)}
+                    >
+                      Uredi
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       )}
 
-      <button
-        onClick={submitResult}
-        className="px-4 py-2 bg-green-600 rounded text-white"
-      >
-        Spremi rezultat
-      </button>
+      {/* Modal za unos / edit rezultata */}
+      {editFixtureId && (
+        <div className="fixed inset-0 bg-black/50 flex justify-center items-center">
+          <div className="bg-white p-6 rounded shadow-xl w-80 space-y-4">
+            <h3 className="text-lg font-semibold">Unos rezultata</h3>
+
+            <div className="flex gap-2 items-center">
+              <input
+                type="number"
+                className="border p-2 w-20 text-center"
+                value={homeGoals}
+                onChange={(e) => setHomeGoals(e.target.value)}
+              />
+              <span className="font-bold text-lg">:</span>
+              <input
+                type="number"
+                className="border p-2 w-20 text-center"
+                value={awayGoals}
+                onChange={(e) => setAwayGoals(e.target.value)}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button
+                className="px-3 py-1 rounded bg-gray-300"
+                onClick={() => setEditFixtureId(null)}
+              >
+                Odustani
+              </button>
+              <button
+                className="px-3 py-1 rounded bg-green-600 text-white"
+                onClick={saveResult}
+                disabled={saving}
+              >
+                {saving ? "Spremam..." : "Spremi"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  )
+  );
 }
