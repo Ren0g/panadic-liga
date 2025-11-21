@@ -54,9 +54,6 @@ export default function LeagueView({
     const loadData = async () => {
       setLoading(true);
 
-      // -----------------------------
-      // 1) TABLICA
-      // -----------------------------
       const { data: standingsData } = await supabase
         .from("standings")
         .select("*")
@@ -66,9 +63,6 @@ export default function LeagueView({
 
       setStandings(standingsData || []);
 
-      // -----------------------------
-      // 2) PRONAĐI TEAM ID ZA BAN JELAČIĆ / BAN JELAČIĆ 2
-      // -----------------------------
       const team = standingsData?.find((t) => t.team_name === banTeamName);
       if (!team) {
         setNextMatch(null);
@@ -77,10 +71,7 @@ export default function LeagueView({
         return;
       }
 
-      // -----------------------------
-      // 3) PRONAĐI IDUĆU UTAKMICU
-      // -----------------------------
-      const today = new Date();
+      const now = new Date();
 
       const { data: fixturesData } = await supabase
         .from("fixtures")
@@ -93,15 +84,12 @@ export default function LeagueView({
           ...f,
           fullDate: new Date(`${f.match_date}T${f.match_time}:00`),
         }))
-        .filter((f) => f.fullDate > today)
+        .filter((f) => f.fullDate > now)
         .sort((a, b) => a.fullDate.getTime() - b.fullDate.getTime());
 
       const next = upcoming[0] || null;
       setNextMatch(next);
 
-      // -----------------------------
-      // 4) PRONAĐI REZULTAT AKO POSTOJI
-      // -----------------------------
       if (next) {
         const { data: resultData } = await supabase
           .from("results")
@@ -122,66 +110,64 @@ export default function LeagueView({
 
   return (
     <div className="space-y-6">
-      {/* NASLOV */}
-      <h1 className="text-xl font-bold">{leagueName} – Tablica</h1>
 
-      {/* TABLICA */}
-      <table className="w-full text-sm border-collapse">
-        <thead>
-          <tr className="border-b">
-            <th className="text-left">#</th>
-            <th className="text-left">Klub</th>
-            <th className="text-center">UT</th>
-            <th className="text-center">P</th>
-            <th className="text-center">N</th>
-            <th className="text-center">I</th>
-            <th className="text-center">G+</th>
-            <th className="text-center">G-</th>
-            <th className="text-center">GR</th>
-            <th className="text-center">Bod</th>
-          </tr>
-        </thead>
-        <tbody>
-          {standings.map((s, i) => (
-            <tr key={s.team_id} className="border-b">
-              <td>{i + 1}</td>
-              <td>{s.team_name}</td>
-              <td className="text-center">{s.ut}</td>
-              <td className="text-center">{s.p}</td>
-              <td className="text-center">{s.n}</td>
-              <td className="text-center">{s.i}</td>
-              <td className="text-center">{s.gplus}</td>
-              <td className="text-center">{s.gminus}</td>
-              <td className="text-center">{s.gr}</td>
-              <td className="text-center">{s.bodovi}</td>
+      {/* BEŽ KARTICA — TABLICA */}
+      <div className="bg-[#fdf7ef] p-4 rounded-xl shadow border border-[#e8dfd5]">
+        <h1 className="text-xl font-bold mb-4 text-[#0A5E2A]">
+          {leagueName} — Tablica
+        </h1>
+
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-[#e2d7c7]">
+              <th className="py-2 text-left">#</th>
+              <th className="py-2 text-left">Klub</th>
+              <th className="py-2 text-center">UT</th>
+              <th className="py-2 text-center">P</th>
+              <th className="py-2 text-center">N</th>
+              <th className="py-2 text-center">I</th>
+              <th className="py-2 text-center">G+</th>
+              <th className="py-2 text-center">G-</th>
+              <th className="py-2 text-center">GR</th>
+              <th className="py-2 text-center">Bod</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
 
-      {/* IDUĆA UTAKMICA */}
-      <div className="border rounded p-4">
-        <h2 className="font-semibold mb-2">
-          Iduća utakmica – {banTeamName}
+          <tbody>
+            {standings.map((s, i) => (
+              <tr key={s.team_id} className="border-b border-[#eee2d5]">
+                <td className="py-2">{i + 1}</td>
+                <td className="py-2">{s.team_name}</td>
+                <td className="py-2 text-center">{s.ut}</td>
+                <td className="py-2 text-center">{s.p}</td>
+                <td className="py-2 text-center">{s.n}</td>
+                <td className="py-2 text-center">{s.i}</td>
+                <td className="py-2 text-center">{s.gplus}</td>
+                <td className="py-2 text-center">{s.gminus}</td>
+                <td className="py-2 text-center">{s.gr}</td>
+                <td className="py-2 text-center">{s.bodovi}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* ZELENI BLOK — IDUĆA UTAKMICA */}
+      <div className="bg-[#0A5E2A] text-white p-4 rounded-xl shadow">
+        <h2 className="text-lg font-semibold mb-2">
+          Iduća utakmica — {banTeamName}
         </h2>
 
         {nextMatch ? (
-          <div className="text-sm space-y-1">
+          <div className="space-y-1 text-sm">
+            <p><b>Kolo:</b> {nextMatch.round}</p>
+            <p><b>Datum:</b> {nextMatch.match_date} u {nextMatch.match_time}</p>
             <p>
-              <b>Kolo:</b> {nextMatch.round}
+              <b>Rezultat:</b>{" "}
+              {nextMatchResult
+                ? `${nextMatchResult.home_goals}:${nextMatchResult.away_goals}`
+                : "—"}
             </p>
-            <p>
-              <b>Datum:</b> {nextMatch.match_date} u {nextMatch.match_time}
-            </p>
-
-            {nextMatchResult ? (
-              <p>
-                <b>Rezultat:</b> {nextMatchResult.home_goals}:
-                {nextMatchResult.away_goals}
-              </p>
-            ) : (
-              <p><b>Rezultat:</b> —</p>
-            )}
           </div>
         ) : (
           <p>Nema nadolazećih utakmica.</p>
