@@ -31,7 +31,7 @@ export async function getNextMatchForTeam(
   const teamId = team.id as string;
   const today = new Date().toISOString().slice(0, 10);
 
-  // 2) Dohvati SVE buduće utakmice i sortiraj ručno
+  // 2) Dohvati sve buduće utakmice za ekipu
   const { data: fixtures, error: fixturesError } = await supabase
     .from("fixtures")
     .select(
@@ -61,7 +61,7 @@ export async function getNextMatchForTeam(
     return null;
   }
 
-  // 3) Sortiramo po datumu + početku utakmice
+  // 3) Sortiranje po datumu i vremenu početka
   const sorted = fixtures.sort((a: any, b: any) => {
     const d1 = new Date(a.match_date + "T" + (a.match_time_start || "00:00"));
     const d2 = new Date(b.match_date + "T" + (b.match_time_start || "00:00"));
@@ -71,18 +71,28 @@ export async function getNextMatchForTeam(
   const f = sorted[0];
 
   const isHome = f.home_team_id === teamId;
+
   const match_time =
     f.match_time_start && f.match_time_end
       ? `${f.match_time_start} - ${f.match_time_end}`
       : f.match_time_start || f.match_time_end || "";
+
+  // >>> FIX ZA TYPESCRIPT: home/away mogu biti array ili objekt <<<
+  const homeName = Array.isArray(f.home)
+    ? f.home[0]?.name
+    : f.home?.name;
+
+  const awayName = Array.isArray(f.away)
+    ? f.away[0]?.name
+    : f.away?.name;
 
   return {
     id: f.id,
     round: f.round,
     match_date: f.match_date,
     match_time,
-    home_team_name: f.home?.name ?? "",
-    away_team_name: f.away?.name ?? "",
+    home_team_name: homeName ?? "",
+    away_team_name: awayName ?? "",
     isHome,
   };
 }
