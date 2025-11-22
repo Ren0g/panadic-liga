@@ -51,6 +51,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="flex-1 max-w-xl w-full mx-auto px-4 py-6">
           {children}
         </main>
+
+        {/* FOOTER */}
+        <footer className="py-4 text-center text-xs text-gray-500">
+          promar.hr
+        </footer>
+
       </body>
     </html>
   );
