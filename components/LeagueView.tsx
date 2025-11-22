@@ -16,16 +16,6 @@ type Standing = {
   bodovi: number;
 };
 
-type Fixture = {
-  id: string;
-  league_code: string;
-  round: string;
-  match_date: string;
-  match_time: string;
-  home_team_id: string;
-  away_team_id: string;
-};
-
 type Result = {
   home_goals: number;
   away_goals: number;
@@ -53,9 +43,7 @@ export default function LeagueView({
     const loadData = async () => {
       setLoading(true);
 
-      // -------------------------
-      // 1) Load teams
-      // -------------------------
+      // TEAMS
       const { data: teams } = await supabase
         .from("teams")
         .select("id, name");
@@ -63,9 +51,7 @@ export default function LeagueView({
       const teamMap: Record<string, string> = {};
       teams?.forEach((t) => (teamMap[t.id] = t.name));
 
-      // -------------------------
-      // 2) Load standings
-      // -------------------------
+      // STANDINGS
       const { data: rawStandings } = await supabase
         .from("standings")
         .select("*")
@@ -81,9 +67,7 @@ export default function LeagueView({
 
       setStandings(finalStandings);
 
-      // -------------------------
-      // 3) Find Ban Jelačić team ID
-      // -------------------------
+      // FIND BAN TEAM
       const banTeam = finalStandings.find(
         (t) => t.team_name === banTeamName
       );
@@ -94,9 +78,7 @@ export default function LeagueView({
         return;
       }
 
-      // -------------------------
-      // 4) Load fixtures
-      // -------------------------
+      // FIXTURES FOR NEXT MATCH
       const { data: rawFixtures } = await supabase
         .from("fixtures")
         .select("*")
@@ -112,7 +94,13 @@ export default function LeagueView({
           ...f,
           home_team_name: teamMap[f.home_team_id] ?? "Nepoznato",
           away_team_name: teamMap[f.away_team_id] ?? "Nepoznato",
-          fullDate: new Date(`${f.match_date}T${f.match_time}:00`),
+          fullDate: new Date(
+            `${f.match_date}T${f.match_time_start || "00:00"}`
+          ),
+          match_time:
+            f.match_time_start && f.match_time_end
+              ? `${f.match_time_start} - ${f.match_time_end}`
+              : f.match_time_start || f.match_time_end || "",
         }))
         .filter((f) => f.fullDate > now)
         .sort((a, b) => a.fullDate - b.fullDate);
@@ -120,9 +108,7 @@ export default function LeagueView({
       const next = future[0] ?? null;
       setNextMatch(next);
 
-      // -------------------------
-      // 5) Result
-      // -------------------------
+      // RESULT OF NEXT MATCH
       if (next) {
         const { data: res } = await supabase
           .from("results")
@@ -144,27 +130,25 @@ export default function LeagueView({
   return (
     <div className="space-y-6">
 
-      {/* -------------------------------- */}
       {/* TABLICA */}
-      {/* -------------------------------- */}
       <div className="bg-[#f3ebd8] p-4 rounded-xl shadow border border-[#c8b59a] text-[#1a1a1a]">
         <h1 className="text-xl font-bold mb-4 text-[#0A5E2A]">
           {leagueName} — Tablica
         </h1>
 
-        <table className="w-full text-sm">
+        <table className="w-full text-sm table-fixed">
           <thead className="border-b border-[#c8b59a] text-[#0A5E2A]">
             <tr>
-              <th className="py-2 text-left">#</th>
-              <th className="py-2 text-left">Klub</th>
-              <th className="py-2 text-center">UT</th>
-              <th className="py-2 text-center">P</th>
-              <th className="py-2 text-center">N</th>
-              <th className="py-2 text-center">I</th>
-              <th className="py-2 text-center">G+</th>
-              <th className="py-2 text-center">G-</th>
-              <th className="py-2 text-center">GR</th>
-              <th className="py-2 text-center">Bod</th>
+              <th className="py-2 w-6 text-left">#</th>
+              <th className="py-2 w-auto text-left">Klub</th>
+              <th className="py-2 w-10 text-center">UT</th>
+              <th className="py-2 w-10 text-center">P</th>
+              <th className="py-2 w-10 text-center">N</th>
+              <th className="py-2 w-10 text-center">I</th>
+              <th className="py-2 w-10 text-center">G+</th>
+              <th className="py-2 w-10 text-center">G-</th>
+              <th className="py-2 w-12 text-center">GR</th>
+              <th className="py-2 w-12 text-center">Bod</th>
             </tr>
           </thead>
 
@@ -174,16 +158,16 @@ export default function LeagueView({
                 key={s.team_id}
                 className="border-b border-[#e3d4bf] bg-white"
               >
-                <td className="py-2 px-1 text-[#1a1a1a]">{i + 1}</td>
-                <td className="py-2 text-[#1a1a1a]">{s.team_name}</td>
-                <td className="py-2 text-center">{s.ut}</td>
-                <td className="py-2 text-center">{s.p}</td>
-                <td className="py-2 text-center">{s.n}</td>
-                <td className="py-2 text-center">{s.i}</td>
-                <td className="py-2 text-center">{s.gplus}</td>
-                <td className="py-2 text-center">{s.gminus}</td>
-                <td className="py-2 text-center">{s.gr}</td>
-                <td className="py-2 text-center text-[#0A5E2A] font-bold">
+                <td className="py-2 px-1 w-6">{i + 1}</td>
+                <td className="py-2 w-auto">{s.team_name}</td>
+                <td className="py-2 text-center w-10">{s.ut}</td>
+                <td className="py-2 text-center w-10">{s.p}</td>
+                <td className="py-2 text-center w-10">{s.n}</td>
+                <td className="py-2 text-center w-10">{s.i}</td>
+                <td className="py-2 text-center w-10">{s.gplus}</td>
+                <td className="py-2 text-center w-10">{s.gminus}</td>
+                <td className="py-2 text-center w-12">{s.gr}</td>
+                <td className="py-2 text-center w-12 font-bold text-[#0A5E2A]">
                   {s.bodovi}
                 </td>
               </tr>
@@ -192,9 +176,7 @@ export default function LeagueView({
         </table>
       </div>
 
-      {/* -------------------------------- */}
-      {/* SLJEDEĆA UTAKMICA */}
-      {/* -------------------------------- */}
+      {/* IDUĆA UTAKMICA */}
       <div className="bg-[#0A5E2A] text-white p-4 rounded-xl shadow">
         <h2 className="text-lg font-semibold mb-2">
           Iduća utakmica — {banTeamName}
