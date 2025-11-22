@@ -52,11 +52,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
         </main>
 
-        {/* FOOTER */}
         <footer className="py-4 text-center text-xs text-gray-500">
-          promar.hr
-        </footer>
-
+  © 2025{" "}
+  <a
+    href="https://promar.hr"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="hover:text-gray-700 transition"
+  >
+    promar.hr
+  </a>
+</footer>
       </body>
     </html>
   );
