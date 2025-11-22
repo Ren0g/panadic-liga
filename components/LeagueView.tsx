@@ -66,7 +66,7 @@ export default function LeagueView({
       setStandings(finalStandings);
 
       // ---------------------------
-      // 3) Find Ban Jelačić team ID
+      // 3) Find Ban Jelačić team
       // ---------------------------
       const banTeam = finalStandings.find(
         (t) => t.team_name === banTeamName
@@ -79,7 +79,7 @@ export default function LeagueView({
       }
 
       // ---------------------------
-      // 4) Load fixtures for next match
+      // 4) Load fixtures (next match)
       // ---------------------------
       const { data: rawFixtures } = await supabase
         .from("fixtures")
@@ -121,26 +121,29 @@ export default function LeagueView({
     <div className="space-y-6">
 
       {/* ------------------------- */}
-      {/* TABLICA LIGE */}
+      {/* TABLICA */}
       {/* ------------------------- */}
       <div className="bg-[#f3ebd8] p-4 rounded-xl shadow border border-[#c8b59a] text-[#1a1a1a]">
         <h1 className="text-xl font-bold mb-4 text-[#0A5E2A]">
           {leagueName} — Tablica
         </h1>
 
-        <table className="w-full text-sm table-fixed">
+        <table className="w-full text-sm">
           <thead className="border-b border-[#c8b59a] text-[#0A5E2A]">
             <tr>
               <th className="py-2 w-6 text-left">#</th>
-              <th className="py-2 w-auto text-left">Klub</th>
-              <th className="py-2 w-10 text-center">UT</th>
-              <th className="py-2 w-10 text-center">P</th>
-              <th className="py-2 w-10 text-center">N</th>
-              <th className="py-2 w-10 text-center">I</th>
-              <th className="py-2 w-10 text-center">G+</th>
-              <th className="py-2 w-10 text-center">G-</th>
-              <th className="py-2 w-12 text-center">GR</th>
-              <th className="py-2 w-12 text-center">Bod</th>
+
+              {/* Klub = fleksibilno, sve ostalo fiksno */}
+              <th className="py-2 text-left">Klub</th>
+
+              <th className="py-2 w-10 text-center whitespace-nowrap">UT</th>
+              <th className="py-2 w-10 text-center whitespace-nowrap">P</th>
+              <th className="py-2 w-10 text-center whitespace-nowrap">N</th>
+              <th className="py-2 w-10 text-center whitespace-nowrap">I</th>
+              <th className="py-2 w-10 text-center whitespace-nowrap">G+</th>
+              <th className="py-2 w-10 text-center whitespace-nowrap">G-</th>
+              <th className="py-2 w-12 text-center whitespace-nowrap">GR</th>
+              <th className="py-2 w-12 text-center whitespace-nowrap">Bod</th>
             </tr>
           </thead>
 
@@ -151,7 +154,10 @@ export default function LeagueView({
                 className="border-b border-[#e3d4bf] bg-white"
               >
                 <td className="py-2 px-1 w-6">{i + 1}</td>
-                <td className="py-2 w-auto">{s.team_name}</td>
+
+                {/* Klub = bez fiksne širine, dopuštamo širenje */}
+                <td className="py-2">{s.team_name}</td>
+
                 <td className="py-2 text-center w-10">{s.ut}</td>
                 <td className="py-2 text-center w-10">{s.p}</td>
                 <td className="py-2 text-center w-10">{s.n}</td>
@@ -182,11 +188,9 @@ export default function LeagueView({
               <b>Par:</b>{" "}
               {nextMatch.home_team_name} — {nextMatch.away_team_name}
             </p>
-
             <p>
               <b>Kolo:</b> {nextMatch.round}
             </p>
-
             <p>
               <b>Datum:</b> {nextMatch.match_date} u {nextMatch.match_time}
             </p>
@@ -195,6 +199,7 @@ export default function LeagueView({
           <p>Nema nadolazećih utakmica.</p>
         )}
       </div>
+
     </div>
   );
 }
