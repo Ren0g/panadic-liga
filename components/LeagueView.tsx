@@ -192,8 +192,9 @@ export default function LeagueView({
               <b>Kolo:</b> {nextMatch.round}
             </p>
             <p>
-              <b>Datum:</b> {nextMatch.match_date} u {nextMatch.match_time}
+               <b>Datum:</b> {new Date(nextMatch.match_date).toLocaleDateString("hr-HR")} u {nextMatch.match_time}
             </p>
+
           </div>
         ) : (
           <p>Nema nadolazećih utakmica.</p>
