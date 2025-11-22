@@ -16,11 +16,6 @@ type Standing = {
   bodovi: number;
 };
 
-type Result = {
-  home_goals: number;
-  away_goals: number;
-};
-
 export default function LeagueView({
   leagueCode,
   refreshKey,
@@ -32,7 +27,6 @@ export default function LeagueView({
     (Standing & { team_name: string })[]
   >([]);
   const [nextMatch, setNextMatch] = useState<any | null>(null);
-  const [nextMatchResult, setNextMatchResult] = useState<Result | null>(null);
   const [loading, setLoading] = useState(true);
 
   const leagueName = leagueCode === "PIONIRI" ? "Pioniri" : "Mlađi pioniri";
@@ -43,7 +37,9 @@ export default function LeagueView({
     const loadData = async () => {
       setLoading(true);
 
-      // TEAMS
+      // ---------------------------
+      // 1) Load teams
+      // ---------------------------
       const { data: teams } = await supabase
         .from("teams")
         .select("id, name");
@@ -51,7 +47,9 @@ export default function LeagueView({
       const teamMap: Record<string, string> = {};
       teams?.forEach((t) => (teamMap[t.id] = t.name));
 
-      // STANDINGS
+      // ---------------------------
+      // 2) Load standings
+      // ---------------------------
       const { data: rawStandings } = await supabase
         .from("standings")
         .select("*")
@@ -67,18 +65,22 @@ export default function LeagueView({
 
       setStandings(finalStandings);
 
-      // FIND BAN TEAM
+      // ---------------------------
+      // 3) Find Ban Jelačić team ID
+      // ---------------------------
       const banTeam = finalStandings.find(
         (t) => t.team_name === banTeamName
       );
+
       if (!banTeam) {
         setNextMatch(null);
-        setNextMatchResult(null);
         setLoading(false);
         return;
       }
 
-      // FIXTURES FOR NEXT MATCH
+      // ---------------------------
+      // 4) Load fixtures for next match
+      // ---------------------------
       const { data: rawFixtures } = await supabase
         .from("fixtures")
         .select("*")
@@ -105,19 +107,7 @@ export default function LeagueView({
         .filter((f) => f.fullDate > now)
         .sort((a, b) => a.fullDate - b.fullDate);
 
-      const next = future[0] ?? null;
-      setNextMatch(next);
-
-      // RESULT OF NEXT MATCH
-      if (next) {
-        const { data: res } = await supabase
-          .from("results")
-          .select("home_goals, away_goals")
-          .eq("fixture_id", next.id)
-          .maybeSingle();
-
-        setNextMatchResult(res ?? null);
-      }
+      setNextMatch(future[0] ?? null);
 
       setLoading(false);
     };
@@ -130,7 +120,9 @@ export default function LeagueView({
   return (
     <div className="space-y-6">
 
-      {/* TABLICA */}
+      {/* ------------------------- */}
+      {/* TABLICA LIGE */}
+      {/* ------------------------- */}
       <div className="bg-[#f3ebd8] p-4 rounded-xl shadow border border-[#c8b59a] text-[#1a1a1a]">
         <h1 className="text-xl font-bold mb-4 text-[#0A5E2A]">
           {leagueName} — Tablica
@@ -176,7 +168,9 @@ export default function LeagueView({
         </table>
       </div>
 
+      {/* ------------------------- */}
       {/* IDUĆA UTAKMICA */}
+      {/* ------------------------- */}
       <div className="bg-[#0A5E2A] text-white p-4 rounded-xl shadow">
         <h2 className="text-lg font-semibold mb-2">
           Iduća utakmica — {banTeamName}
@@ -188,17 +182,13 @@ export default function LeagueView({
               <b>Par:</b>{" "}
               {nextMatch.home_team_name} — {nextMatch.away_team_name}
             </p>
+
             <p>
               <b>Kolo:</b> {nextMatch.round}
             </p>
+
             <p>
               <b>Datum:</b> {nextMatch.match_date} u {nextMatch.match_time}
-            </p>
-            <p>
-              <b>Rezultat:</b>{" "}
-              {nextMatchResult
-                ? `${nextMatchResult.home_goals}:${nextMatchResult.away_goals}`
-                : "—"}
             </p>
           </div>
         ) : (
