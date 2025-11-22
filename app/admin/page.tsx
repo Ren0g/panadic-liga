@@ -9,7 +9,8 @@ type Fixture = {
   league_code: string;
   round: string;
   match_date: string;
-  match_time: string;
+  match_time_start: string;
+  match_time_end: string;
   home_team_id: string;
   away_team_id: string;
 };
@@ -33,6 +34,15 @@ export default function AdminPage() {
 
   const [refreshKey, setRefreshKey] = useState(0);
 
+  const formatDate = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString("hr-HR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
+
   const loadFixtures = async () => {
     setLoading(true);
 
@@ -42,20 +52,22 @@ export default function AdminPage() {
     teams?.forEach((t) => (tm[t.id] = t.name));
     setTeamMap(tm);
 
-    // FIXTURES
+    // FIXTURES — new correct version
     const { data: fixturesData } = await supabase
       .from("fixtures")
       .select("*")
       .eq("league_code", leagueCode)
-      .order("round")
       .order("match_date")
-      .order("match_time");
+      .order("match_time_start");
 
     const decorated =
       fixturesData?.map((f) => ({
         ...f,
         home_team: tm[f.home_team_id],
         away_team: tm[f.away_team_id],
+        match_time: f.match_time_start && f.match_time_end
+          ? `${f.match_time_start} - ${f.match_time_end}`
+          : f.match_time_start || f.match_time_end || "",
       })) || [];
 
     setFixtures(decorated);
@@ -154,7 +166,7 @@ export default function AdminPage() {
       ) : (
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b font-semibold">
+            <tr className="border-b font-semibold text-left">
               <th>Kolo</th>
               <th>Datum</th>
               <th>Vrijeme</th>
@@ -164,11 +176,12 @@ export default function AdminPage() {
               <th></th>
             </tr>
           </thead>
+
           <tbody>
             {fixtures.map((f) => (
               <tr key={f.id} className="border-b">
                 <td>{f.round}</td>
-                <td>{f.match_date}</td>
+                <td>{formatDate(f.match_date)}</td>
                 <td>{f.match_time}</td>
                 <td>{f.home_team}</td>
                 <td>{f.away_team}</td>
