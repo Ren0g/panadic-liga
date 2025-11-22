@@ -46,13 +46,11 @@ export default function AdminPage() {
   const loadFixtures = async () => {
     setLoading(true);
 
-    // TEAMS
     const { data: teams } = await supabase.from("teams").select("id, name");
     const tm: Record<string, string> = {};
     teams?.forEach((t) => (tm[t.id] = t.name));
     setTeamMap(tm);
 
-    // FIXTURES — new correct version
     const { data: fixturesData } = await supabase
       .from("fixtures")
       .select("*")
@@ -65,14 +63,14 @@ export default function AdminPage() {
         ...f,
         home_team: tm[f.home_team_id],
         away_team: tm[f.away_team_id],
-        match_time: f.match_time_start && f.match_time_end
-          ? `${f.match_time_start} - ${f.match_time_end}`
-          : f.match_time_start || f.match_time_end || "",
+        match_time:
+          f.match_time_start && f.match_time_end
+            ? `${f.match_time_start} - ${f.match_time_end}`
+            : f.match_time_start || f.match_time_end || "",
       })) || [];
 
     setFixtures(decorated);
 
-    // RESULTS
     const { data: resultsData } = await supabase.from("results").select("*");
     const rmap: Record<string, Result | null> = {};
 
@@ -136,11 +134,14 @@ export default function AdminPage() {
     <div className="p-4 space-y-8">
       <h1 className="text-2xl font-bold">Admin — Upravljanje rezultatima</h1>
 
+      {/* LIGA ODABIR */}
       <div className="flex gap-2">
         <button
           onClick={() => setLeagueCode("PIONIRI")}
           className={`px-4 py-2 rounded ${
-            leagueCode === "PIONIRI" ? "bg-green-700 text-white" : "bg-gray-300"
+            leagueCode === "PIONIRI"
+              ? "bg-green-700 text-white"
+              : "bg-gray-300"
           }`}
         >
           Pioniri
@@ -148,13 +149,16 @@ export default function AdminPage() {
         <button
           onClick={() => setLeagueCode("MLADJI")}
           className={`px-4 py-2 rounded ${
-            leagueCode === "MLADJI" ? "bg-green-700 text-white" : "bg-gray-300"
+            leagueCode === "MLADJI"
+              ? "bg-green-700 text-white"
+              : "bg-gray-300"
           }`}
         >
           Mlađi pioniri
         </button>
       </div>
 
+      {/* TABLICA IZ KOMONENTE */}
       <div className="border rounded p-4">
         <LeagueView leagueCode={leagueCode} refreshKey={refreshKey} />
       </div>
@@ -164,59 +168,62 @@ export default function AdminPage() {
       {loading ? (
         <p>Učitavanje...</p>
       ) : (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b font-semibold text-left">
-              <th>Kolo</th>
-              <th>Datum</th>
-              <th>Vrijeme</th>
-              <th>Domaćin</th>
-              <th>Gost</th>
-              <th>Rezultat</th>
-              <th></th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {fixtures.map((f) => (
-              <tr key={f.id} className="border-b">
-                <td>{f.round}</td>
-                <td>{formatDate(f.match_date)}</td>
-                <td>{f.match_time}</td>
-                <td>{f.home_team}</td>
-                <td>{f.away_team}</td>
-                <td>
-                  {results[f.id]
-                    ? `${results[f.id]!.home_goals}:${results[f.id]!.away_goals}`
-                    : "—"}
-                </td>
-                <td>
-                  <button
-                    onClick={() => startEditing(f)}
-                    className="px-3 py-1 text-white bg-blue-600 rounded text-xs"
-                  >
-                    Uredi
-                  </button>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="border-b font-semibold">
+                <th>Kolo</th>
+                <th>Datum</th>
+                <th>Vrijeme</th>
+                <th>Domaćin</th>
+                <th>Gost</th>
+                <th>Rezultat</th>
+                <th></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+              {fixtures.map((f) => (
+                <tr key={f.id} className="border-b">
+                  <td>{f.round}</td>
+                  <td>{formatDate(f.match_date)}</td>
+                  <td>{f.match_time}</td>
+                  <td>{f.home_team}</td>
+                  <td>{f.away_team}</td>
+                  <td>
+                    {results[f.id]
+                      ? `${results[f.id]!.home_goals}:${results[f.id]!.away_goals}`
+                      : "—"}
+                  </td>
+                  <td>
+                    <button
+                      onClick={() => startEditing(f)}
+                      className="px-3 py-1 mx-1 bg-green-700 text-white rounded-lg text-xs"
+                    >
+                      Uredi
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
+      {/* EDIT MODAL */}
       {editFixtureId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded shadow w-72 space-y-4">
+          <div className="bg-white p-6 rounded-xl shadow w-72 space-y-4">
             <h3 className="text-lg font-bold">Unos rezultata</h3>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4 justify-center">
               <input
                 type="number"
                 className="border p-2 text-center w-16"
                 value={homeGoals}
                 onChange={(e) => setHomeGoals(e.target.value)}
               />
-              <span className="font-bold">:</span>
+              <span className="font-bold text-xl">:</span>
               <input
                 type="number"
                 className="border p-2 text-center w-16"
@@ -227,13 +234,13 @@ export default function AdminPage() {
 
             <div className="flex justify-end gap-2">
               <button
-                className="px-3 py-1 bg-gray-300 rounded"
+                className="px-4 py-2 bg-gray-300 rounded-lg"
                 onClick={() => setEditFixtureId(null)}
               >
                 Odustani
               </button>
               <button
-                className="px-3 py-1 bg-green-700 text-white rounded"
+                className="px-4 py-2 bg-green-700 text-white rounded-lg"
                 onClick={saveResult}
               >
                 Spremi
