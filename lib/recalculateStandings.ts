@@ -15,7 +15,7 @@ type TeamStats = {
 };
 
 export async function recalculateStandings(leagueCode: LeagueCode) {
-  // 1) Teams
+  // 1) Teams u toj ligi
   const { data: teams, error: teamsError } = await supabase
     .from("teams")
     .select("id")
@@ -26,7 +26,7 @@ export async function recalculateStandings(leagueCode: LeagueCode) {
     return;
   }
 
-  // 2) Fixtures in this league
+  // 2) Fixtures u toj ligi
   const { data: fixtures, error: fixturesError } = await supabase
     .from("fixtures")
     .select("id, home_team_id, away_team_id")
@@ -39,7 +39,7 @@ export async function recalculateStandings(leagueCode: LeagueCode) {
 
   const fixtureIds = fixtures.map((f) => f.id);
 
-  // 3) Results ONLY for fixtures of this league
+  // 3) Rezultati SAMO za te fixture-e
   const { data: results, error: resultsError } = await supabase
     .from("results")
     .select("fixture_id, home_goals, away_goals")
@@ -62,7 +62,7 @@ export async function recalculateStandings(leagueCode: LeagueCode) {
     };
   });
 
-  // 4) Init stats
+  // 4) Init statistike
   const stats: Record<string, TeamStats> = {};
   teams.forEach((t) => {
     stats[t.id] = {
@@ -78,7 +78,7 @@ export async function recalculateStandings(leagueCode: LeagueCode) {
     };
   });
 
-  // 5) Compute stats
+  // 5) Računaj po svim utakmicama
   fixtures.forEach((f) => {
     const r = resultsByFixture[f.id];
     if (!r) return;
@@ -100,19 +100,14 @@ export async function recalculateStandings(leagueCode: LeagueCode) {
     away.gminus += hg;
 
     if (hg > ag) {
-      // home win
       home.p++;
       home.bodovi += 3;
-
       away.i++;
     } else if (hg < ag) {
-      // away win
       away.p++;
       away.bodovi += 3;
-
       home.i++;
     } else {
-      // draw
       home.n++;
       away.n++;
       home.bodovi++;
@@ -120,12 +115,12 @@ export async function recalculateStandings(leagueCode: LeagueCode) {
     }
   });
 
-  // 6) Goal difference
+  // 6) Gol razlika
   Object.values(stats).forEach((s) => {
     s.gr = s.gplus - s.gminus;
   });
 
-  // 7) Clear old
+  // 7) Obriši stare standings za tu ligu
   const { error: delErr } = await supabase
     .from("standings")
     .delete()
@@ -136,15 +131,13 @@ export async function recalculateStandings(leagueCode: LeagueCode) {
     return;
   }
 
-  // 8) Insert new
+  // 8) Upis novih
   const rows = Object.values(stats).map((s) => ({
     league_code: leagueCode,
     ...s,
   }));
 
-  const { error: insErr } = await supabase
-    .from("standings")
-    .insert(rows);
+  const { error: insErr } = await supabase.from("standings").insert(rows);
 
   if (insErr) {
     console.error("Insert error", insErr);
