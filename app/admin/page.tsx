@@ -3,14 +3,15 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import LeagueView from "@/components/LeagueView";
+import { recalculateStandings } from "@/lib/recalculateStandings";
 
 type Fixture = {
   id: string;
   league_code: string;
   round: string;
   match_date: string;
-  match_time_start: string;
-  match_time_end: string;
+  match_time_start?: string | null;
+  match_time_end?: string | null;
   home_team_id: string;
   away_team_id: string;
 };
@@ -34,27 +35,26 @@ export default function AdminPage() {
 
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const formatDate = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleDateString("hr-HR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-  };
-
   const loadFixtures = async () => {
     setLoading(true);
 
-    const { data: teams } = await supabase.from("teams").select("id, name");
+    // TEAMS
+    const { data: teams } = await supabase
+      .from("teams")
+      .select("id, name, league_code");
+
     const tm: Record<string, string> = {};
-    teams?.forEach((t) => (tm[t.id] = t.name));
+    teams
+      ?.filter((t) => t.league_code === leagueCode)
+      .forEach((t) => (tm[t.id] = t.name));
     setTeamMap(tm);
 
+    // FIXTURES
     const { data: fixturesData } = await supabase
       .from("fixtures")
       .select("*")
       .eq("league_code", leagueCode)
+      .order("round")
       .order("match_date")
       .order("match_time_start");
 
@@ -71,6 +71,7 @@ export default function AdminPage() {
 
     setFixtures(decorated);
 
+    // RESULTS
     const { data: resultsData } = await supabase.from("results").select("*");
     const rmap: Record<string, Result | null> = {};
 
@@ -111,37 +112,41 @@ export default function AdminPage() {
 
     const existing = results[editFixtureId];
 
-    if (existing) {
-      await supabase
-        .from("results")
-        .update({ home_goals: h, away_goals: a })
-        .eq("fixture_id", editFixtureId);
-    } else {
-      await supabase.from("results").insert({
-        fixture_id: editFixtureId,
-        home_goals: h,
-        away_goals: a,
-      });
-    }
+    try {
+      if (existing) {
+        await supabase
+          .from("results")
+          .update({ home_goals: h, away_goals: a })
+          .eq("fixture_id", editFixtureId);
+      } else {
+        await supabase.from("results").insert({
+          fixture_id: editFixtureId,
+          home_goals: h,
+          away_goals: a,
+        });
+      }
 
-    setSaving(false);
-    setEditFixtureId(null);
-    loadFixtures();
-    setRefreshKey((k) => k + 1);
+      // 🔥 nakon unosa/izmjene rezultata, izračunaj tablicu za tu ligu
+      await recalculateStandings(leagueCode);
+
+      // ponovno učitaj podatke
+      await loadFixtures();
+      setRefreshKey((k) => k + 1);
+    } finally {
+      setSaving(false);
+      setEditFixtureId(null);
+    }
   };
 
   return (
     <div className="p-4 space-y-8">
       <h1 className="text-2xl font-bold">Admin — Upravljanje rezultatima</h1>
 
-      {/* LIGA ODABIR */}
       <div className="flex gap-2">
         <button
           onClick={() => setLeagueCode("PIONIRI")}
           className={`px-4 py-2 rounded ${
-            leagueCode === "PIONIRI"
-              ? "bg-green-700 text-white"
-              : "bg-gray-300"
+            leagueCode === "PIONIRI" ? "bg-green-700 text-white" : "bg-gray-300"
           }`}
         >
           Pioniri
@@ -149,16 +154,13 @@ export default function AdminPage() {
         <button
           onClick={() => setLeagueCode("MLADJI")}
           className={`px-4 py-2 rounded ${
-            leagueCode === "MLADJI"
-              ? "bg-green-700 text-white"
-              : "bg-gray-300"
+            leagueCode === "MLADJI" ? "bg-green-700 text-white" : "bg-gray-300"
           }`}
         >
           Mlađi pioniri
         </button>
       </div>
 
-      {/* TABLICA IZ KOMONENTE */}
       <div className="border rounded p-4">
         <LeagueView leagueCode={leagueCode} refreshKey={refreshKey} />
       </div>
@@ -168,62 +170,62 @@ export default function AdminPage() {
       {loading ? (
         <p>Učitavanje...</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="border-b font-semibold">
-                <th>Kolo</th>
-                <th>Datum</th>
-                <th>Vrijeme</th>
-                <th>Domaćin</th>
-                <th>Gost</th>
-                <th>Rezultat</th>
-                <th></th>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b font-semibold">
+              <th>Kolo</th>
+              <th>Datum</th>
+              <th>Vrijeme</th>
+              <th>Domaćin</th>
+              <th>Gost</th>
+              <th>Rezultat</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {fixtures.map((f) => (
+              <tr key={f.id} className="border-b">
+                <td>{f.round}</td>
+                <td>
+                  {f.match_date
+                    ? new Date(f.match_date).toLocaleDateString("hr-HR")
+                    : ""}
+                </td>
+                <td>{f.match_time}</td>
+                <td>{f.home_team}</td>
+                <td>{f.away_team}</td>
+                <td>
+                  {results[f.id]
+                    ? `${results[f.id]!.home_goals}:${results[f.id]!.away_goals}`
+                    : "—"}
+                </td>
+                <td>
+                  <button
+                    onClick={() => startEditing(f)}
+                    className="px-3 py-1 text-white bg-green-700 rounded text-xs"
+                  >
+                    Uredi
+                  </button>
+                </td>
               </tr>
-            </thead>
-
-            <tbody>
-              {fixtures.map((f) => (
-                <tr key={f.id} className="border-b">
-                  <td>{f.round}</td>
-                  <td>{formatDate(f.match_date)}</td>
-                  <td>{f.match_time}</td>
-                  <td>{f.home_team}</td>
-                  <td>{f.away_team}</td>
-                  <td>
-                    {results[f.id]
-                      ? `${results[f.id]!.home_goals}:${results[f.id]!.away_goals}`
-                      : "—"}
-                  </td>
-                  <td>
-                    <button
-                      onClick={() => startEditing(f)}
-                      className="px-3 py-1 mx-1 bg-green-700 text-white rounded-lg text-xs"
-                    >
-                      Uredi
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       )}
 
-      {/* EDIT MODAL */}
       {editFixtureId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-xl shadow w-72 space-y-4">
+          <div className="bg-white p-6 rounded shadow w-72 space-y-4">
             <h3 className="text-lg font-bold">Unos rezultata</h3>
 
-            <div className="flex items-center gap-4 justify-center">
+            <div className="flex items-center gap-3">
               <input
                 type="number"
                 className="border p-2 text-center w-16"
                 value={homeGoals}
                 onChange={(e) => setHomeGoals(e.target.value)}
               />
-              <span className="font-bold text-xl">:</span>
+              <span className="font-bold">:</span>
               <input
                 type="number"
                 className="border p-2 text-center w-16"
@@ -234,16 +236,18 @@ export default function AdminPage() {
 
             <div className="flex justify-end gap-2">
               <button
-                className="px-4 py-2 bg-gray-300 rounded-lg"
+                className="px-3 py-1 bg-gray-300 rounded"
                 onClick={() => setEditFixtureId(null)}
+                disabled={saving}
               >
                 Odustani
               </button>
               <button
-                className="px-4 py-2 bg-green-700 text-white rounded-lg"
+                className="px-3 py-1 bg-green-700 text-white rounded"
                 onClick={saveResult}
+                disabled={saving}
               >
-                Spremi
+                {saving ? "Spremanje..." : "Spremi"}
               </button>
             </div>
           </div>
