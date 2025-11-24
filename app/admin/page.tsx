@@ -34,6 +34,7 @@ export default function AdminPage() {
   const [saving, setSaving] = useState(false);
 
   const [refreshKey, setRefreshKey] = useState(0);
+  const [recalcLoading, setRecalcLoading] = useState(false);
 
   const loadFixtures = async () => {
     setLoading(true);
@@ -126,16 +127,20 @@ export default function AdminPage() {
         });
       }
 
-      // 🔥 nakon unosa/izmjene rezultata, izračunaj tablicu za tu ligu
-      await recalculateStandings(leagueCode);
-
-      // ponovno učitaj podatke
+      // OVDJE više ne radimo automatski recalculation!
       await loadFixtures();
       setRefreshKey((k) => k + 1);
     } finally {
       setSaving(false);
       setEditFixtureId(null);
     }
+  };
+
+  const handleRecalculate = async () => {
+    setRecalcLoading(true);
+    await recalculateStandings(leagueCode);
+    setRefreshKey((k) => k + 1);
+    setRecalcLoading(false);
   };
 
   return (
@@ -158,6 +163,17 @@ export default function AdminPage() {
           }`}
         >
           Mlađi pioniri
+        </button>
+      </div>
+
+      {/* 🔥 GUMB ZA AŽURIRANJE TABLICE */}
+      <div>
+        <button
+          onClick={handleRecalculate}
+          disabled={recalcLoading}
+          className="px-4 py-2 bg-green-700 text-white rounded shadow"
+        >
+          {recalcLoading ? "Ažuriram..." : "Ažuriraj tablicu"}
         </button>
       </div>
 
